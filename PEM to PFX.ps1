@@ -1,35 +1,38 @@
-<# 
-- This script is used primarly to decrypt PFX certficiate formats into the readable PEM fomat
-- Primarly for internal company purpose, this script can also be used for other resources
-- PFX format included the private key, root chain, PKCs #12 and a password.
+<#
+- This script is primarily used to decrypt PFX certificate formats into the readable PEM format.
+- Primarily for internal company purposes, this script can also be used for other resources.
+- PFX format includes the private key, root chain, PKCS#12, and a password.
 #>
 
+# Define paths
+$PFXDir = "\\Certificate Script Dir\PFX\"
+$PEMDir = "\\Certificate Script Dir\PEM\"
+$OldFilesDir = "\\Certificate Script Dir\Old Files\"
+$CertListFile = "\\Certificate Script Dir\PEM List.txt"
 
-
-#Checks to see if this script has generated list of certs previously and removes the file
-$FileName = "\PEM List.txt Drectory\"
-if (Test-Path $FileName) {
-  Remove-Item $FileName
+# Check if the certificate list file exists and remove it
+if (Test-Path $CertListFile) {
+    Remove-Item $CertListFile
 }
 
-$files = Get-ChildItem "\Certificate Script Dir\PFX\"
-foreach($file in $files){
- $file.Name | Out-File -filepath  $FileName -Append
-
+# Get list of PFX files and output their names to the certificate list file
+$PFXFiles = Get-ChildItem $PFXDir -Filter *.pfx
+foreach ($file in $PFXFiles) {
+    $file.Name | Out-File -FilePath $CertListFile -Append
 }
 
+# Prompt user for password
+$Password = Read-Host "Enter password" #-AsSecureString 
 
-$Password = Read-Host  "Enter password" #-AsSecureString 
-$certs = Get-Content -Path "\PEM List.txt" 
-foreach ($cert in $certs) {
+# Read certificate list file
+$Certs = Get-Content -Path $CertListFile 
+foreach ($Cert in $Certs) {
+    $PFXPath = Join-Path -Path $PFXDir -ChildPath $Cert
+    $PEMPath = Join-Path -Path $PEMDir -ChildPath "$Cert.pem"
 
-    $PFX="\\<sever>\Certificate Script Dir\PFX\$Cert"
-    $PEM= "\\sever>\Certificate Script Dir\PEM\$Cert.pem" #Will be placed in the PEM folder on the directory. 
+    # Convert PFX to PEM using OpenSSL
+    & openssl pkcs12 -in $PFXPath -out $PEMPath -nodes -password pass:$Password 
 
-    openssl pkcs12 -in $PFX -out $PEM -nodes -password pass:$Password 
-     
-    Move-Item -Path $PFX -Destination "\\<server>\Certificate Script Dir\Old Files"
+    # Move the processed PFX file to the old files directory
+    Move-Item -Path $PFXPath -Destination $OldFilesDir
 }
-
-
-
